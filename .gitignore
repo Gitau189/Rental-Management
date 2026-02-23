@@ -1,0 +1,17 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+env/
+venv/
+.env
+
+# Build outputs
+dist/
+build/
+*.pyc
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"D:/Client Projects/Esther-Rent-system/backend/venv/Scripts/python.exe\":*)",
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(cd \"D:/Client Projects/Esther-Rent-system/backend\" && venv/Scripts/python.exe manage.py check 2>&1)",
+      "Bash(cd \"D:/Client Projects/Esther-Rent-system/backend\" && venv/Scripts/python.exe manage.py makemigrations 2>&1)",
+      "Bash(cd \"D:/Client Projects/Esther-Rent-system/backend\" && venv/Scripts/python.exe manage.py makemigrations users properties billing 2>&1)",
+      "Bash(grep:*)"
+    ]
+  }
+}
