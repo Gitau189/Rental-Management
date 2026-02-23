@@ -1,4 +1,4 @@
-# Esther Rent – Rental Management System
+# Rental Management System
 
 A full-stack web application for managing rental properties, tenants, invoices, and payments.
 
