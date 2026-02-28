@@ -24,7 +24,7 @@ export default function Layout({ role }) {
       />
 
       {/* Main area — shifts right on desktop only */}
-      <div className="flex flex-col flex-1 min-w-0 lg:ml-64">
+      <div className="flex flex-col flex-1 min-w-0 lg:ml-52">
 
         {/* Mobile top bar */}
         <header className="sticky top-0 z-20 flex items-center gap-3 bg-primary-900 px-4 h-14 lg:hidden shrink-0">
