@@ -131,7 +131,7 @@ export default function Tenants() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <div className="space-y-6 p-4 md:p-6 lg:p-8 bg-slate-50 min-h-screen">
+    <div className="space-y-6 p-4 md:p-6 lg:p-1 bg-slate-50 min-h-screen">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -146,7 +146,7 @@ def tenant_list(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'PUT', 'PATCH'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 @landlord_required
 def tenant_detail(request, pk):
@@ -159,8 +159,25 @@ def tenant_detail(request, pk):
         serializer = TenantProfileSerializer(profile)
         return Response(serializer.data)
 
+    if request.method == 'DELETE':
+        # Deactivate tenant (run serializer so deactivation logic executes)
+        serializer = TenantUpdateSerializer(profile, data={'is_active': False}, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            # Build a friendly confirmation message. If the tenant had a unit, try
+            # to include the latest UnitStatusAudit id for reference.
+            unit = profile.unit
+            audit_id = None
+            if unit:
+                latest = unit.status_audits.first()
+                if latest:
+                    audit_id = latest.id
+
+            return Response({'detail': 'Tenant deactivated', 'audit_id': audit_id}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     partial = request.method == 'PATCH'
-    serializer = TenantUpdateSerializer(profile, data=request.data, partial=partial)
+    serializer = TenantUpdateSerializer(profile, data=request.data, partial=partial, context={'request': request})
     if serializer.is_valid():
         serializer.save()
         return Response(TenantProfileSerializer(profile).data)
