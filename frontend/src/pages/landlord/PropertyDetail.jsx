@@ -32,10 +32,13 @@ export default function PropertyDetail() {
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_UNIT)
   const [saving, setSaving] = useState(false)
+  const [tenants, setTenants] = useState([])
+  const [selectedTenant, setSelectedTenant] = useState('')
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const fetchAll = async () => {
     try {
@@ -77,6 +80,8 @@ export default function PropertyDetail() {
   const openCreate = () => {
     setEditing(null)
     setForm(EMPTY_UNIT)
+    setSelectedTenant('')
+    fetchTenants()
     setModal(true)
   }
 
@@ -88,7 +93,28 @@ export default function PropertyDetail() {
       base_rent: u.base_rent,
       status: u.status,
     })
-    setModal(true)
+    fetchTenants().then((data) => {
+      // if this unit currently has an occupant, preselect them
+      try {
+        const occupant = (data || []).find(t => t.unit === u.id)
+        setSelectedTenant(occupant ? String(occupant.id) : '')
+      } catch (e) {
+        setSelectedTenant('')
+      }
+      setModal(true)
+    })
+  }
+
+  const fetchTenants = async () => {
+    try {
+      const res = await api.get('/tenants/?is_active=true')
+      // tenants without unit (available) or those already in this unit will be candidates
+      setTenants(res.data)
+      return res.data
+    } catch (err) {
+      toast.error(errorMessage(err))
+      return []
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -96,15 +122,33 @@ export default function PropertyDetail() {
     setSaving(true)
 
     try {
+      let unitId = null
       if (editing) {
-        await api.patch(`/units/${editing.id}/`, form)
+        const res = await api.patch(`/units/${editing.id}/`, form)
+        unitId = res.data.id || editing.id
         toast.success("Unit updated")
       } else {
-        await api.post("/units/", {
+        const res = await api.post("/units/", {
           ...form,
           apartment: parseInt(id),
         })
+        unitId = res.data.id
         toast.success("Unit added")
+      }
+
+      // If status is occupied, require a tenant selection and assign tenant
+      if (form.status === 'occupied') {
+        if (!selectedTenant) {
+          toast.error('Please select a tenant when marking unit occupied.')
+          setSaving(false)
+          return
+        }
+
+        try {
+          await api.patch(`/tenants/${selectedTenant}/`, { unit: unitId })
+        } catch (err) {
+          toast.error(errorMessage(err))
+        }
       }
 
       setModal(false)
@@ -119,10 +163,17 @@ export default function PropertyDetail() {
   const confirmDeactivate = async () => {
     if (!deleteTarget) return
 
+    if (deleteConfirmText !== 'DELETE_UNIT') {
+      toast.error('Please type DELETE_UNIT to confirm permanent deletion.')
+      return
+    }
+
     try {
-      await api.delete(`/units/${deleteTarget.id}/`)
-      toast.success("Unit deactivated")
+      const url = `/units/${deleteTarget.id}/?confirm=DELETE_UNIT&delete_invoices=true`
+      await api.delete(url)
+      toast.success("Unit deleted")
       setDeleteTarget(null)
+      setDeleteConfirmText('')
       fetchAll()
     } catch (err) {
       toast.error(errorMessage(err))
@@ -348,6 +399,24 @@ export default function PropertyDetail() {
             <option value="occupied">Occupied</option>
           </select>
 
+          {form.status === 'occupied' && (
+            <div>
+              <label className="label text-sm font-medium text-slate-700">Assign Tenant</label>
+              <select
+                className="input mt-1 border-slate-200 focus:border-primary-500 rounded-lg w-full"
+                value={selectedTenant}
+                onChange={e => setSelectedTenant(e.target.value)}
+              >
+                <option value="">-- Select tenant --</option>
+                {tenants
+                  .filter(t => !t.unit || t.unit === (editing ? editing.id : null))
+                  .map(t => (
+                    <option key={t.id} value={t.id}>{t.user.first_name} {t.user.last_name} — {t.user.email}</option>
+                  ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -375,21 +444,26 @@ export default function PropertyDetail() {
       {/* Deactivate Modal */}
       <Modal
         open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        title="Deactivate Unit"
+        onClose={() => { setDeleteTarget(null); setDeleteConfirmText('') }}
+        title="Delete Unit"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Deactivate{" "}
-            <span className="font-semibold">
-              {deleteTarget?.unit_number}
-            </span>
-            ?
+            This will permanently delete unit <span className="font-semibold">{deleteTarget?.unit_number}</span>.
+            Any invoices/payments for this unit will be deleted. To confirm, type <span className="font-mono">DELETE_UNIT</span> below.
           </p>
+
+          <input
+            type="text"
+            value={deleteConfirmText}
+            onChange={e => setDeleteConfirmText(e.target.value)}
+            placeholder="Type DELETE_UNIT to confirm"
+            className="input w-full mt-1 border-slate-200 rounded-lg"
+          />
 
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => setDeleteTarget(null)}
+              onClick={() => { setDeleteTarget(null); setDeleteConfirmText('') }}
               className="btn-secondary"
             >
               Cancel
@@ -398,8 +472,9 @@ export default function PropertyDetail() {
             <button
               onClick={confirmDeactivate}
               className="btn-danger"
+              disabled={deleteConfirmText !== 'DELETE_UNIT'}
             >
-              Deactivate
+              Delete
             </button>
           </div>
         </div>

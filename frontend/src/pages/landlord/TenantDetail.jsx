@@ -16,6 +16,8 @@ export default function TenantDetail() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [units, setUnits] = useState([])
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -56,15 +58,30 @@ export default function TenantDetail() {
       id_number: tenant.id_number,
       move_in_date: tenant.move_in_date,
       is_active: tenant.is_active,
+      unit: tenant.unit || '',
     })
+    fetchUnits()
     setEditModal(true)
+  }
+
+  const fetchUnits = async () => {
+    try {
+      const res = await api.get('/units/?active_only=true')
+      setUnits(res.data)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
   }
 
   const handleEdit = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.patch(`/tenants/${id}/`, form)
+      const payload = { ...form }
+      if (payload.unit === '') payload.unit = null
+      else if (payload.unit) payload.unit = Number(payload.unit)
+
+      await api.patch(`/tenants/${id}/`, payload)
       toast.success('Tenant updated successfully.')
       setEditModal(false)
       fetchAll()
@@ -76,9 +93,15 @@ export default function TenantDetail() {
   }
 
   const handleDelete = async () => {
+    if (deleteConfirmText !== 'DELETE_TENANT') {
+      toast.error('Please type DELETE_TENANT to confirm.')
+      return
+    }
+
     setDeleting(true)
     try {
-      await api.delete(`/tenants/${id}/`)
+      const url = `/tenants/${id}/?confirm=DELETE_TENANT&delete_invoices=true`
+      await api.delete(url)
       toast.success('Tenant deleted successfully.')
       // Redirect to tenants list after delete
       window.location.href = '/landlord/tenants'
@@ -87,6 +110,7 @@ export default function TenantDetail() {
     } finally {
       setDeleting(false)
       setDeleteModal(false)
+      setDeleteConfirmText('')
     }
   }
 
@@ -337,6 +361,19 @@ export default function TenantDetail() {
           </div>
 
           <Input label="Phone" value={form.phone} onChange={v => updateForm('phone', v)} />
+          <div>
+            <label className="label text-sm font-medium text-slate-700">Unit</label>
+            <select
+              className="input mt-1 border-slate-200 focus:border-primary-500 rounded-lg w-full"
+              value={form.unit || ''}
+              onChange={e => updateForm('unit', e.target.value || '')}
+            >
+              <option value="">-- Unassign / Select unit --</option>
+              {units.map(u => (
+                <option key={u.id} value={u.id}>{u.apartment_name} – {u.unit_number}</option>
+              ))}
+            </select>
+          </div>
           <Input label="ID Number" value={form.id_number} onChange={v => updateForm('id_number', v)} />
           <Input type="date" label="Move-in Date" value={form.move_in_date} onChange={v => updateForm('move_in_date', v)} />
 
@@ -366,16 +403,26 @@ export default function TenantDetail() {
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Delete Tenant" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Are you sure you want to delete this tenant? This action cannot be undone.
+            This will permanently delete the tenant and associated invoices/payments.
+            To confirm, type <span className="font-mono">DELETE_TENANT</span> below.
           </p>
+
+          <input
+            type="text"
+            value={deleteConfirmText}
+            onChange={e => setDeleteConfirmText(e.target.value)}
+            placeholder="Type DELETE_TENANT to confirm"
+            className="input w-full mt-1 border-slate-200 rounded-lg"
+          />
+
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setDeleteModal(false)} className="btn-secondary px-4 py-2 rounded-lg">
+            <button type="button" onClick={() => { setDeleteModal(false); setDeleteConfirmText('') }} className="btn-secondary px-4 py-2 rounded-lg">
               Cancel
             </button>
             <button 
               onClick={handleDelete} 
-              disabled={deleting} 
-              className="btn-danger flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              disabled={deleting || deleteConfirmText !== 'DELETE_TENANT'} 
+              className="btn-danger flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
             >
               {deleting && <Loader2 size={15} className="animate-spin" />}
               Delete

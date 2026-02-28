@@ -35,6 +35,12 @@ class UnitSerializer(serializers.ModelSerializer):
                 data['status'] = Unit.VACANT
         except Exception:
             pass
+        # If the unit is vacant, don't expose any active tenant name (defensive)
+        try:
+            if data.get('status') == Unit.VACANT:
+                data['active_tenant_name'] = None
+        except Exception:
+            pass
         return data
 
     class Meta:
@@ -47,6 +53,12 @@ class UnitSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def get_active_tenant_name(self, obj):
+        # Defensive: if the unit is marked vacant, treat as no active tenant
+        try:
+            if obj.status == Unit.VACANT:
+                return None
+        except Exception:
+            pass
         tenant = obj.active_tenant
         if tenant:
             return tenant.user.get_full_name()
@@ -55,7 +67,8 @@ class UnitSerializer(serializers.ModelSerializer):
 
 class TenantProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    unit_detail = UnitSerializer(source='unit', read_only=True)
+    unit = serializers.SerializerMethodField()
+    unit_detail = serializers.SerializerMethodField()
     outstanding_balance = serializers.SerializerMethodField()
 
     class Meta:
@@ -73,6 +86,32 @@ class TenantProfileSerializer(serializers.ModelSerializer):
         invoices = Invoice.objects.filter(tenant=obj.user).exclude(status='paid')
         total = sum(i.remaining_balance for i in invoices)
         return str(total)
+
+    def get_unit_detail(self, obj):
+        # Only expose unit details if this tenant is the active occupant
+        unit = obj.unit
+        try:
+            if not unit:
+                return None
+            # unit.active_tenant returns a TenantProfile or None
+            active = unit.active_tenant
+            if active and active.pk == obj.pk and obj.is_active:
+                return UnitSerializer(unit).data
+        except Exception:
+            pass
+        return None
+
+    def get_unit(self, obj):
+        unit = obj.unit
+        try:
+            if not unit:
+                return None
+            active = unit.active_tenant
+            if active and active.pk == obj.pk and obj.is_active:
+                return unit.id
+        except Exception:
+            pass
+        return None
 
 
 class TenantCreateSerializer(serializers.Serializer):
@@ -135,10 +174,11 @@ class TenantUpdateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     phone = serializers.CharField(source='user.phone', required=False, allow_blank=True)
+    unit = serializers.PrimaryKeyRelatedField(queryset=Unit.objects.filter(is_active=True), required=False, allow_null=True)
 
     class Meta:
         model = TenantProfile
-        fields = ('first_name', 'last_name', 'phone', 'id_number', 'move_in_date', 'is_active')
+        fields = ('first_name', 'last_name', 'phone', 'unit', 'id_number', 'move_in_date', 'is_active')
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
@@ -146,11 +186,51 @@ class TenantUpdateSerializer(serializers.ModelSerializer):
             setattr(instance.user, attr, value)
         instance.user.save()
 
+        # Handle unit transfer if provided
+        unit_in_payload = 'unit' in validated_data
+        new_unit = None
+        if unit_in_payload:
+            new_unit = validated_data.pop('unit')
+        # apply other fields (id_number, move_in_date, is_active)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        # If there's a unit change, perform transfer logic
+        request = self.context.get('request')
+        actor = request.user if request else None
+
+        old_unit = instance.unit
+        if new_unit is not None and new_unit != old_unit:
+            # Ensure new unit is not occupied by another tenant
+            active = getattr(new_unit, 'active_tenant', None)
+            if active and active.pk != instance.pk:
+                raise serializers.ValidationError({'unit': 'Selected unit is already occupied.'})
+
+            # Vacate old unit if present
+            if old_unit:
+                old_unit._changed_by = actor
+                old_unit.status = Unit.VACANT
+                old_unit.save(update_fields=['status'])
+
+            # Assign new unit to tenant and mark occupied
+            instance.unit = new_unit
+            new_unit._changed_by = actor
+            new_unit.status = Unit.OCCUPIED
+            new_unit.save(update_fields=['status'])
+
         instance.save()
 
-        # If deactivated, free the unit
+        # If the payload explicitly set unit to null, unassign the tenant
+        if unit_in_payload and new_unit is None and old_unit:
+            try:
+                old_unit._changed_by = actor
+                old_unit.status = Unit.VACANT
+                old_unit.save(update_fields=['status'])
+            except Exception:
+                pass
+            instance.unit = None
+            instance.save()
+
+        # If deactivated, free the unit (preserve tenant->unit link for history)
         if not instance.is_active and instance.unit:
             unit = instance.unit
             # record actor for audit
@@ -159,8 +239,6 @@ class TenantUpdateSerializer(serializers.ModelSerializer):
                 unit._changed_by = request.user
             unit.status = Unit.VACANT
             unit.save(update_fields=['status'])
-
-            # preserve tenant->unit link for historical records; do not null the unit
 
         return instance
 

@@ -52,5 +52,15 @@ def unit_post_save(sender, instance, created, **kwargs):
             meta=meta,
         )
 
-        # Note: we intentionally do NOT unlink TenantProfile.unit here so
-        # historical association between tenant and unit is preserved.
+        # If the unit was vacated, unlink any tenant profiles pointing to it
+        # so the tenant no longer appears assigned to this unit.
+        try:
+            if new_status == Unit.VACANT:
+                from .models import TenantProfile as _TP
+                linked = _TP.objects.filter(unit=instance)
+                for tp in linked:
+                    tp.unit = None
+                    tp.save(update_fields=['unit'])
+        except Exception:
+            # don't let audit creation fail the unit save
+            pass
