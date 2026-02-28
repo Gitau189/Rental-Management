@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
 from properties.models import TenantProfile, Unit
 from users.serializers import UserSerializer
@@ -74,6 +75,13 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
             'invoice_date', 'due_date',
             'base_rent', 'line_items', 'notes',
         )
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Invoice.objects.all(),
+                fields=('unit', 'month', 'year'),
+                message='An invoice for this unit already exists for the selected month and year.'
+            )
+        ]
 
     def validate(self, data):
         unit = data.get('unit')

@@ -27,6 +27,7 @@ export default function CreateInvoice() {
     notes: '',
   })
   const [lineItems, setLineItems] = useState([])
+  const [errors, setErrors] = useState({})
 
   useEffect(() => {
     api.get('/tenants/?is_active=true').then(r => {
@@ -93,10 +94,25 @@ export default function CreateInvoice() {
           .map((i, idx) => ({ description: i.description, amount: parseFloat(i.amount), order: idx })),
       }
       const { data } = await api.post('/invoices/', payload)
+      setErrors({})
       toast.success('Invoice created successfully.')
       navigate(`/landlord/invoices/${data.id}`)
     } catch (err) {
-      toast.error(errorMessage(err))
+      // Surface API validation errors inline and show a friendly toast
+      if (err.response && err.response.data) {
+        const data = err.response.data
+        setErrors(data)
+        // Prefer showing non-field messages directly without the key name
+        if (data.non_field_errors && Array.isArray(data.non_field_errors)) {
+          toast.error(data.non_field_errors.join(' | '))
+        } else if (data.detail) {
+          toast.error(data.detail)
+        } else {
+          toast.error(errorMessage(err))
+        }
+      } else {
+        toast.error(errorMessage(err))
+      }
     } finally {
       setSaving(false)
     }
@@ -106,6 +122,13 @@ export default function CreateInvoice() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {errors.non_field_errors && (
+        <div className="card bg-red-50 border border-red-100 text-red-700">
+          {errors.non_field_errors.map((m, i) => (
+            <div key={i}>{m}</div>
+          ))}
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <Link to="/landlord/invoices" className="btn-secondary !px-3 !py-2"><ArrowLeft size={16} /></Link>
         <h1 className="text-2xl font-bold text-slate-900">Create Invoice</h1>
@@ -126,6 +149,7 @@ export default function CreateInvoice() {
                   </option>
                 ))}
               </select>
+              {errors.tenant && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.tenant) ? errors.tenant.join(', ') : errors.tenant}</div>}
             </div>
             <div>
               <label className="label">Billing Period *</label>
@@ -141,10 +165,12 @@ export default function CreateInvoice() {
             <div>
               <label className="label">Invoice Date *</label>
               <input type="date" className="input" required value={form.invoice_date} onChange={e => setForm({ ...form, invoice_date: e.target.value })} />
+              {errors.invoice_date && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.invoice_date) ? errors.invoice_date.join(', ') : errors.invoice_date}</div>}
             </div>
             <div>
               <label className="label">Due Date *</label>
               <input type="date" className="input" required value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
+              {errors.due_date && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.due_date) ? errors.due_date.join(', ') : errors.due_date}</div>}
             </div>
           </div>
         </div>
@@ -157,6 +183,7 @@ export default function CreateInvoice() {
             <label className="label">Base Rent (KES) *</label>
             <input type="number" step="0.01" min="0" className="input" required value={form.base_rent}
               onChange={e => setForm({ ...form, base_rent: e.target.value })} placeholder="0.00" />
+            {errors.base_rent && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.base_rent) ? errors.base_rent.join(', ') : errors.base_rent}</div>}
           </div>
 
           {/* Line items */}
@@ -173,6 +200,9 @@ export default function CreateInvoice() {
                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                     <Minus size={16} />
                   </button>
+                  {errors.line_items && errors.line_items[idx] && (
+                    <div className="text-sm text-red-600 mt-1">{Object.entries(errors.line_items[idx]).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}</div>
+                  )}
                 </div>
               ))}
             </div>
