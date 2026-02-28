@@ -20,6 +20,7 @@ export default function CreateInvoice() {
   const [form, setForm] = useState({
     tenant: preselectedTenant || '',
     unit: '',
+    unit_display: '',
     month: currentMonth(),
     year: currentYear(),
     invoice_date: new Date().toISOString().slice(0, 10),
@@ -53,6 +54,7 @@ export default function CreateInvoice() {
       ...f,
       tenant: userId,
       unit: t?.unit || '',
+      unit_display: t?.unit_detail?.unit_number || '',
       base_rent: t?.unit_detail?.base_rent || '',
     }))
   }
@@ -238,7 +240,7 @@ export default function CreateInvoice() {
                   <input 
                     type="text" 
                     className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-600 cursor-not-allowed" 
-                    value={form.unit ? `Unit ${form.unit}` : 'Select tenant first'}
+                    value={form.unit ? `Unit ${form.unit_display || form.unit}` : 'Select tenant first'}
                     readOnly 
                     disabled
                   />
