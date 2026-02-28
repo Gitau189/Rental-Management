@@ -1,394 +1,89 @@
-import { AlertCircle, Building2, CheckCircle, Clock, DollarSign, Home, TrendingUp } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import LoadingSpinner from '../../components/LoadingSpinner'
-import StatusBadge from '../../components/StatusBadge'
-import api from '../../services/api'
-import { formatCurrency, formatDate } from '../../utils/helpers'
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Home,
+  TrendingUp,
+} from "lucide-react"
+import { useEffect, useState } from "react"
+import LoadingSpinner from "../../components/LoadingSpinner"
+import StatusBadge from "../../components/StatusBadge"
+import api from "../../services/api"
+import { formatCurrency, formatDate } from "../../utils/helpers"
 
 /* ─────────────────────────────────────────
-   STYLES
+   METRIC CARD
 ───────────────────────────────────────── */
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-  .db {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    background: #f4f6f9;
-    min-height: 100%;
-    padding: 28px 28px 40px;
-    box-sizing: border-box;
-  }
-
-  /* ── fade up ── */
-  @keyframes db-up {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .db-fade { animation: db-up 280ms ease both; }
-  .db-fade:nth-child(1) { animation-delay: 0ms; }
-  .db-fade:nth-child(2) { animation-delay: 60ms; }
-  .db-fade:nth-child(3) { animation-delay: 120ms; }
-  .db-fade:nth-child(4) { animation-delay: 180ms; }
-  .db-fade:nth-child(5) { animation-delay: 240ms; }
-
-  /* ── white card ── */
-  .db-card {
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  }
-
-  /* ── greeting bar ── */
-  .db-greeting {
-    margin-bottom: 24px;
-  }
-  .db-greeting-name {
-    font-size: 20px;
-    font-weight: 700;
-    color: #1a1a2e;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-  }
-  .db-greeting-sub {
-    font-size: 12.5px;
-    color: #9399a6;
-    margin-top: 3px;
-  }
-
-  /* ── section title ── */
-  .db-section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1a1a2e;
-    letter-spacing: -0.01em;
-    margin-bottom: 14px;
-  }
-
-  /* ── overview grid ── */
-  .db-overview {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  @media (max-width: 900px) {
-    .db-overview { grid-template-columns: 1fr; }
-  }
-
-  /* overview left: stat cards */
-  .db-overview-left {
-    padding: 20px 22px;
-  }
-
-  .db-metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
-    margin-top: 4px;
-  }
-
-  .db-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .db-metric-icon-wrap {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
-  }
-
-  .db-metric-label {
-    font-size: 10.5px;
-    font-weight: 500;
-    color: #9399a6;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  .db-metric-value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #1a1a2e;
-    letter-spacing: -0.04em;
-    line-height: 1;
-  }
-
-  .db-metric-value.sm {
-    font-size: 17px;
-    letter-spacing: -0.02em;
-  }
-
-  .db-metric-delta {
-    font-size: 11px;
-    color: #9399a6;
-    margin-top: 2px;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  /* overview right: outstanding */
-  .db-overview-right {
-    padding: 20px 22px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .db-outstanding-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .db-outstanding-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: #9399a6;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-  }
-
-  .db-outstanding-value {
-    font-size: 30px;
-    font-weight: 700;
-    color: #d63031;
-    letter-spacing: -0.04em;
-    line-height: 1;
-  }
-
-  .db-outstanding-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: #fff0f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  /* ── status section ── */
-  .db-status-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  @media (max-width: 800px) {
-    .db-status-grid { grid-template-columns: 1fr; }
-  }
-
-  .db-status-card {
-    padding: 18px 20px;
-  }
-
-  .db-status-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #f2f4f7;
-  }
-
-  .db-status-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .db-status-label {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #1a1a2e;
-    flex: 1;
-    min-width: 0;
-    letter-spacing: -0.01em;
-  }
-
-  .db-status-badge {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #9399a6;
-    background: #f2f4f7;
-    border-radius: 20px;
-    padding: 2px 8px;
-    flex-shrink: 0;
-  }
-
-  .db-tenant-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 7px 0;
-    border-bottom: 1px solid #f7f8fa;
-  }
-  .db-tenant-row:last-child { border-bottom: none; }
-
-  .db-tenant-name {
-    font-size: 12.5px;
-    font-weight: 500;
-    color: #2d3142;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .db-tenant-unit {
-    font-size: 11px;
-    color: #c0c6d4;
-    margin-top: 1px;
-  }
-
-  .db-tenant-amount {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #2d3142;
-    white-space: nowrap;
-    text-align: right;
-  }
-
-  .db-empty {
-    font-size: 12px;
-    color: #c0c6d4;
-    padding: 4px 0;
-  }
-
-  /* ── table card ── */
-  .db-table-card {
-    overflow: hidden;
-  }
-
-  .db-table-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px 14px;
-    border-bottom: 1px solid #f2f4f7;
-  }
-
-  .db-table-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1a1a2e;
-    letter-spacing: -0.01em;
-  }
-
-  .db-table-meta {
-    font-size: 11.5px;
-    color: #b0b8c8;
-    font-weight: 400;
-  }
-
-  table.db-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .db-table thead tr {
-    background: #f8f9fb;
-    border-bottom: 1px solid #eff1f5;
-  }
-
-  .db-table th {
-    padding: 9px 18px;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #aab0be;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  .db-table td {
-    padding: 12px 18px;
-    font-size: 12.5px;
-    color: #444c60;
-    border-bottom: 1px solid #f2f4f7;
-    line-height: 1.4;
-  }
-
-  .db-table tbody tr:last-child td { border-bottom: none; }
-  .db-table tbody tr { transition: background 100ms ease; }
-  .db-table tbody tr:hover { background: #fafbfc; }
-
-  .db-table .td-name { font-weight: 500; color: #1a1a2e; }
-  .db-table .td-unit { color: #aab0be; }
-  .db-table .td-amount { font-weight: 600; color: #0e7a4a; white-space: nowrap; }
-  .db-table .td-date  { color: #8a93a6; white-space: nowrap; }
-  .db-table .td-method { color: #8a93a6; }
-
-  /* row number */
-  .db-table .td-num {
-    color: #c0c6d4;
-    font-size: 11.5px;
-    font-weight: 500;
-    width: 32px;
-  }
-`
-
-/* ─────────────────────────────────────────
-   STAT METRIC
-───────────────────────────────────────── */
-function Metric({ label, value, icon: Icon, iconBg, iconColor, small }) {
+function MetricCard({ label, value, icon: Icon, iconBg, iconColor }) {
   return (
-    <div className="db-metric">
-      <div className="db-metric-icon-wrap" style={{ background: iconBg }}>
-        <Icon size={16} color={iconColor} />
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition p-5">
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+        style={{ background: iconBg }}
+      >
+        <Icon size={18} color={iconColor} />
       </div>
-      <p className="db-metric-label">{label}</p>
-      <p className={`db-metric-value${small ? ' sm' : ''}`}>{value}</p>
+
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
     </div>
   )
 }
 
 /* ─────────────────────────────────────────
-   STATUS LIST
+   TENANT STATUS CARD
 ───────────────────────────────────────── */
-function TenantStatusList({ title, items, icon: Icon, iconColor, iconBg }) {
+function TenantStatusCard({
+  title,
+  items,
+  icon: Icon,
+  iconBg,
+  iconColor,
+}) {
   return (
-    <div className="db-card db-status-card db-fade">
-      <div className="db-status-head">
-        <div className="db-status-icon" style={{ background: iconBg }}>
-          <Icon size={13} color={iconColor} />
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: iconBg }}
+          >
+            <Icon size={16} color={iconColor} />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-800">
+            {title}
+          </h3>
         </div>
-        <p className="db-status-label">{title}</p>
-        <span className="db-status-badge">{items.length}</span>
+        <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+          {items.length}
+        </span>
       </div>
 
       {items.length === 0 ? (
-        <p className="db-empty">None this month</p>
+        <p className="text-sm text-slate-400">No records this month</p>
       ) : (
-        <div>
+        <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.invoice_id} className="db-tenant-row">
-              <div style={{ minWidth: 0 }}>
-                <p className="db-tenant-name">{item.tenant_name}</p>
-                <p className="db-tenant-unit">{item.unit}</p>
+            <div
+              key={item.invoice_id}
+              className="flex justify-between items-start border-b last:border-0 pb-2"
+            >
+              <div>
+                <p className="text-sm font-medium text-slate-800">
+                  {item.tenant_name}
+                </p>
+                <p className="text-xs text-slate-400">{item.unit}</p>
               </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <p className="db-tenant-amount">KES {formatCurrency(item.remaining_balance)}</p>
-                <div style={{ marginTop: '3px' }}>
-                  <StatusBadge status={item.status} />
-                </div>
+
+              <div className="text-right">
+                <p className="text-sm font-semibold text-slate-800">
+                  KES {formatCurrency(item.remaining_balance)}
+                </p>
+                <StatusBadge status={item.status} />
               </div>
             </div>
           ))}
@@ -406,149 +101,184 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/reports/dashboard/')
-      .then(r => setData(r.data))
+    api
+      .get("/reports/dashboard/")
+      .then((r) => setData(r.data))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <LoadingSpinner />
   if (!data) return null
 
-  const { units, revenue_this_month, total_outstanding, current_month, recent_payments } = data
-  const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December']
+  const {
+    units,
+    revenue_this_month,
+    total_outstanding,
+    current_month,
+    recent_payments,
+  } = data
+
+  const monthNames = [
+    "",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ]
 
   return (
-    <>
-      <style>{STYLES}</style>
-      <div className="db">
+    <div className="min-h-screen bg-slate-50 px-6 py-8 space-y-10">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">
+          Dashboard
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          {monthNames[current_month.month]} {current_month.year} overview
+        </p>
+      </div>
 
-        {/* ── Greeting ── */}
-        <div className="db-greeting db-fade">
-          <p className="db-greeting-name">Dashboard</p>
-          <p className="db-greeting-sub">
-            {monthNames[current_month.month]} {current_month.year} overview
+      {/* Overview Metrics */}
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total Units"
+          value={units.total}
+          icon={Building2}
+          iconBg="#eef2ff"
+          iconColor="#4f46e5"
+        />
+        <MetricCard
+          label="Occupied Units"
+          value={units.occupied}
+          icon={Home}
+          iconBg="#ecfdf5"
+          iconColor="#059669"
+        />
+        <MetricCard
+          label="Vacant Units"
+          value={units.vacant}
+          icon={Home}
+          iconBg="#f1f5f9"
+          iconColor="#64748b"
+        />
+        <MetricCard
+          label="Revenue This Month"
+          value={`KES ${formatCurrency(revenue_this_month)}`}
+          icon={TrendingUp}
+          iconBg="#ecfdf5"
+          iconColor="#059669"
+        />
+      </div>
+
+      {/* Outstanding Highlight */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+            Total Outstanding Balance
+          </p>
+          <p className="text-3xl font-bold text-red-600 mt-2">
+            KES {formatCurrency(total_outstanding)}
           </p>
         </div>
-
-        {/* ── Works Overview + Outstanding ── */}
-        <p className="db-section-title db-fade">Works Overview</p>
-        <div className="db-overview db-fade">
-
-          {/* Left: 4 metrics */}
-          <div className="db-card db-overview-left">
-            <div className="db-metrics-grid">
-              <Metric
-                label="Total Units"
-                value={units.total}
-                icon={Building2}
-                iconBg="#eef0ff"
-                iconColor="#4c5bd4"
-              />
-              <Metric
-                label="Occupied"
-                value={units.occupied}
-                icon={Home}
-                iconBg="#e6faf3"
-                iconColor="#0e7a4a"
-              />
-              <Metric
-                label="Vacant"
-                value={units.vacant}
-                icon={Home}
-                iconBg="#f4f4f6"
-                iconColor="#9399a6"
-              />
-              <Metric
-                label="Revenue This Month"
-                value={`KES ${formatCurrency(revenue_this_month)}`}
-                icon={TrendingUp}
-                iconBg="#e6faf3"
-                iconColor="#0e7a4a"
-                small
-              />
-            </div>
-          </div>
-
-          {/* Right: outstanding */}
-          <div className="db-card db-overview-right">
-            <div className="db-outstanding-row">
-              <div>
-                <p className="db-outstanding-label">Total Outstanding Balance</p>
-                <p className="db-outstanding-value">KES {formatCurrency(total_outstanding)}</p>
-              </div>
-              <div className="db-outstanding-icon">
-                <DollarSign size={22} color="#d63031" />
-              </div>
-            </div>
-          </div>
+        <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+          <DollarSign size={22} className="text-red-600" />
         </div>
+      </div>
 
-        {/* ── Payment Status ── */}
-        <p className="db-section-title db-fade" style={{ marginTop: '4px' }}>
+      {/* Payment Status */}
+      <div>
+        <h2 className="text-lg font-semibold text-slate-800 mb-4">
           {monthNames[current_month.month]} Payment Status
-        </p>
-        <div className="db-status-grid">
-          <TenantStatusList
+        </h2>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <TenantStatusCard
             title="Paid"
             items={current_month.paid}
             icon={CheckCircle}
-            iconColor="#0e7a4a"
-            iconBg="#e6faf3"
+            iconBg="#ecfdf5"
+            iconColor="#059669"
           />
-          <TenantStatusList
+          <TenantStatusCard
             title="Partially Paid / Overdue"
             items={current_month.partial}
             icon={Clock}
-            iconColor="#b07d10"
-            iconBg="#fdf8e6"
+            iconBg="#fef9c3"
+            iconColor="#b45309"
           />
-          <TenantStatusList
+          <TenantStatusCard
             title="Not Paid"
             items={current_month.unpaid}
             icon={AlertCircle}
-            iconColor="#d63031"
-            iconBg="#fff0f0"
+            iconBg="#fee2e2"
+            iconColor="#dc2626"
           />
         </div>
-
-        {/* ── Recent Payments ── */}
-        {recent_payments.length > 0 && (
-          <div className="db-card db-table-card db-fade" style={{ marginTop: '4px' }}>
-            <div className="db-table-head">
-              <p className="db-table-title">Recent Payments</p>
-              <p className="db-table-meta">Showing 1–{recent_payments.length} of {recent_payments.length}</p>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="db-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '32px' }}>No.</th>
-                    <th>Tenant</th>
-                    <th>Unit</th>
-                    <th>Amount</th>
-                    <th>Date</th>
-                    <th>Method</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent_payments.map((p, i) => (
-                    <tr key={p.id}>
-                      <td className="td-num">{i + 1}</td>
-                      <td className="td-name">{p.tenant_name}</td>
-                      <td className="td-unit">{p.unit}</td>
-                      <td className="td-amount">KES {formatCurrency(p.amount)}</td>
-                      <td className="td-date">{formatDate(p.payment_date)}</td>
-                      <td className="td-method">{p.method}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
       </div>
-    </>
+
+      {/* Recent Payments */}
+      {recent_payments.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex justify-between items-center px-6 py-4 border-b">
+            <h3 className="text-lg font-semibold text-slate-800">
+              Recent Payments
+            </h3>
+            <span className="text-sm text-slate-400">
+              {recent_payments.length} records
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wide">
+                <tr>
+                  <th className="px-6 py-3 text-left">#</th>
+                  <th className="px-6 py-3 text-left">Tenant</th>
+                  <th className="px-6 py-3 text-left">Unit</th>
+                  <th className="px-6 py-3 text-left">Amount</th>
+                  <th className="px-6 py-3 text-left">Date</th>
+                  <th className="px-6 py-3 text-left">Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent_payments.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    className="border-b last:border-0 hover:bg-slate-50 transition"
+                  >
+                    <td className="px-6 py-3 text-slate-400">
+                      {i + 1}
+                    </td>
+                    <td className="px-6 py-3 font-medium text-slate-800">
+                      {p.tenant_name}
+                    </td>
+                    <td className="px-6 py-3 text-slate-500">
+                      {p.unit}
+                    </td>
+                    <td className="px-6 py-3 font-semibold text-emerald-600">
+                      KES {formatCurrency(p.amount)}
+                    </td>
+                    <td className="px-6 py-3 text-slate-500">
+                      {formatDate(p.payment_date)}
+                    </td>
+                    <td className="px-6 py-3 text-slate-500">
+                      {p.method}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
