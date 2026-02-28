@@ -109,7 +109,10 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
         )
 
         for i, item in enumerate(line_items_data):
-            InvoiceLineItem.objects.create(invoice=invoice, order=i, **item)
+            # Ensure we don't pass 'order' twice: prefer explicit index 'i',
+            # but allow client to provide an order override via item['order'].
+            item_order = item.pop('order', i)
+            InvoiceLineItem.objects.create(invoice=invoice, order=item_order, **item)
 
         return invoice
 
