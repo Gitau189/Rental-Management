@@ -23,6 +23,14 @@ class UnitAdmin(admin.ModelAdmin):
     list_filter = ('status', 'is_active', 'apartment')
     search_fields = ('unit_number', 'apartment__name')
 
+    def save_model(self, request, obj, form, change):
+        # record the admin user as the actor for status changes
+        try:
+            obj._changed_by = request.user
+        except Exception:
+            pass
+        super().save_model(request, obj, form, change)
+
 
 @admin.register(TenantProfile)
 class TenantProfileAdmin(admin.ModelAdmin):

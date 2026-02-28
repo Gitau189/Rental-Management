@@ -225,7 +225,11 @@ export default function Tenants() {
                 </div>
 
                 <StatusBadge
-                  status={t.is_active ? "occupied" : "vacant"}
+                  status={
+                    (t.is_active && t.unit_detail && t.unit_detail.status === 'occupied')
+                      ? 'occupied'
+                      : 'inactive'
+                  }
                 />
 
                 <Link

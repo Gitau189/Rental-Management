@@ -93,3 +93,26 @@ class TenantProfile(models.Model):
 
     def __str__(self):
         return f'{self.user.get_full_name()} – {self.unit}'
+
+
+class UnitStatusAudit(models.Model):
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name='status_audits')
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='unit_status_audits',
+    )
+    from_status = models.CharField(max_length=20, null=True, blank=True)
+    to_status = models.CharField(max_length=20)
+    reason = models.TextField(blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        who = self.changed_by.get_full_name() if self.changed_by else 'system'
+        return f'Unit {self.unit} {self.from_status}→{self.to_status} by {who} at {self.created_at}'

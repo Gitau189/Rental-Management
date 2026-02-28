@@ -4,7 +4,7 @@ from rest_framework import serializers
 from users.models import User
 from users.serializers import UserSerializer
 
-from .models import Apartment, TenantProfile, Unit
+from .models import Apartment, TenantProfile, Unit, UnitStatusAudit
 
 
 class ApartmentSerializer(serializers.ModelSerializer):
@@ -25,6 +25,17 @@ class ApartmentSerializer(serializers.ModelSerializer):
 class UnitSerializer(serializers.ModelSerializer):
     apartment_name = serializers.CharField(source='apartment.name', read_only=True)
     active_tenant_name = serializers.SerializerMethodField()
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Ensure display reflects actual occupancy: if there's no active tenant,
+        # surface the unit as vacant even if the stored `status` is inconsistent.
+        try:
+            if not instance.active_tenant and data.get('status') != Unit.VACANT:
+                data['status'] = Unit.VACANT
+        except Exception:
+            pass
+        return data
 
     class Meta:
         model = Unit
@@ -112,6 +123,8 @@ class TenantCreateSerializer(serializers.Serializer):
         )
 
         # Mark unit occupied
+        # attach actor so signals can record who made the change
+        unit._changed_by = landlord
         unit.status = Unit.OCCUPIED
         unit.save(update_fields=['status'])
 
@@ -140,7 +153,22 @@ class TenantUpdateSerializer(serializers.ModelSerializer):
         # If deactivated, free the unit
         if not instance.is_active and instance.unit:
             unit = instance.unit
+            # record actor for audit
+            request = self.context.get('request')
+            if request:
+                unit._changed_by = request.user
             unit.status = Unit.VACANT
             unit.save(update_fields=['status'])
 
+            # preserve tenant->unit link for historical records; do not null the unit
+
         return instance
+
+
+class UnitStatusAuditSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.CharField(source='changed_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = UnitStatusAudit
+        fields = ('id', 'unit', 'from_status', 'to_status', 'reason', 'meta', 'changed_by', 'changed_by_name', 'created_at')
+        read_only_fields = ('id', 'created_at')

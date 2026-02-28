@@ -3,13 +3,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Apartment, TenantProfile, Unit
+from .models import Apartment, TenantProfile, Unit, UnitStatusAudit
 from .serializers import (
     ApartmentSerializer,
     TenantCreateSerializer,
     TenantProfileSerializer,
     TenantUpdateSerializer,
     UnitSerializer,
+    UnitStatusAuditSerializer,
 )
 
 
@@ -164,3 +165,17 @@ def tenant_detail(request, pk):
         serializer.save()
         return Response(TenantProfileSerializer(profile).data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@landlord_required
+def unit_audit(request, pk):
+    try:
+        unit = Unit.objects.get(pk=pk, apartment__landlord=request.user)
+    except Unit.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    audits = unit.status_audits.all()
+    serializer = UnitStatusAuditSerializer(audits, many=True)
+    return Response(serializer.data)

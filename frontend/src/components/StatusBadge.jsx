@@ -5,6 +5,7 @@ const STATUS_STYLES = {
   overdue: 'bg-red-100 text-red-800',
   occupied: 'bg-blue-100 text-blue-800',
   vacant: 'bg-slate-100 text-slate-600',
+  inactive: 'bg-slate-50 text-slate-500',
 }
 
 const STATUS_LABELS = {
@@ -14,6 +15,7 @@ const STATUS_LABELS = {
   overdue: 'Overdue',
   occupied: 'Occupied',
   vacant: 'Vacant',
+  inactive: 'Inactive',
 }
 
 export default function StatusBadge({ status }) {
