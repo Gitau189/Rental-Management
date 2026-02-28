@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, Minus, Plus, Calendar, Home, User, FileText, CreditCard, AlertCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -15,6 +15,7 @@ export default function CreateInvoice() {
   const [tenants, setTenants] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState('details')
 
   const [form, setForm] = useState({
     tenant: preselectedTenant || '',
@@ -33,26 +34,24 @@ export default function CreateInvoice() {
     api.get('/tenants/?is_active=true').then(r => {
       setTenants(r.data)
       if (preselectedTenant) {
-        // preselectedTenant is a TenantProfile ID; resolve to User ID for the form
         const t = r.data.find(t => t.id === parseInt(preselectedTenant))
         if (t) {
           setForm(f => ({
             ...f,
-            tenant: String(t.user.id),   // Invoice.tenant FK expects User ID
+            tenant: String(t.user.id),
             unit: t.unit || '',
             base_rent: t.unit_detail?.base_rent || '',
           }))
         }
       }
     }).finally(() => setLoading(false))
-  }, [])
+  }, [preselectedTenant])
 
   const handleTenantChange = (userId) => {
-    // Options use t.user.id as value, so look up by user ID
     const t = tenants.find(t => t.user.id === parseInt(userId))
     setForm(f => ({
       ...f,
-      tenant: userId,                    // User ID — what the API expects
+      tenant: userId,
       unit: t?.unit || '',
       base_rent: t?.unit_detail?.base_rent || '',
     }))
@@ -95,14 +94,15 @@ export default function CreateInvoice() {
       }
       const { data } = await api.post('/invoices/', payload)
       setErrors({})
-      toast.success('Invoice created successfully.')
+      toast.success('Invoice created successfully!', {
+        icon: '🎉',
+        duration: 4000,
+      })
       navigate(`/landlord/invoices/${data.id}`)
     } catch (err) {
-      // Surface API validation errors inline and show a friendly toast
       if (err.response && err.response.data) {
         const data = err.response.data
         setErrors(data)
-        // Prefer showing non-field messages directly without the key name
         if (data.non_field_errors && Array.isArray(data.non_field_errors)) {
           toast.error(data.non_field_errors.join(' | '))
         } else if (data.detail) {
@@ -118,130 +118,356 @@ export default function CreateInvoice() {
     }
   }
 
-  if (loading) return <div className="animate-pulse text-slate-400 py-8 text-center">Loading…</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 size={40} className="animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading tenant data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {errors.non_field_errors && (
-        <div className="card bg-red-50 border border-red-100 text-red-700">
-          {errors.non_field_errors.map((m, i) => (
-            <div key={i}>{m}</div>
-          ))}
+    <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-4">
+          <Link 
+            to="/landlord/invoices" 
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Create New Invoice</h1>
+            <p className="text-gray-500 mt-1">Generate an invoice for a tenant</p>
+          </div>
         </div>
-      )}
-      <div className="flex items-center gap-3">
-        <Link to="/landlord/invoices" className="btn-secondary !px-3 !py-2"><ArrowLeft size={16} /></Link>
-        <h1 className="text-2xl font-bold text-slate-900">Create Invoice</h1>
+
+        {/* Progress Tabs */}
+        <div className="flex items-center gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${
+              activeTab === 'details'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <FileText size={16} />
+              Invoice Details
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('charges')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${
+              activeTab === 'charges'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <CreditCard size={16} />
+              Charges & Items
+            </span>
+          </button>
+        </div>
       </div>
 
+      {/* Error Display */}
+      {errors.non_field_errors && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-start gap-3">
+          <AlertCircle size={20} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Please fix the following errors:</p>
+            {errors.non_field_errors.map((m, i) => (
+              <p key={i} className="text-sm mt-1">{m}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Tenant & Period */}
-        <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-800">Invoice Details</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Tenant *</label>
-              <select className="input" required value={form.tenant} onChange={e => handleTenantChange(e.target.value)}>
-                <option value="">Select tenant…</option>
-                {tenants.map(t => (
-                  <option key={t.id} value={t.user.id}>
-                    {t.user.first_name} {t.user.last_name} – {t.unit_detail?.unit_number || 'No unit'}
-                  </option>
-                ))}
-              </select>
-              {errors.tenant && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.tenant) ? errors.tenant.join(', ') : errors.tenant}</div>}
-            </div>
-            <div>
-              <label className="label">Billing Period *</label>
-              <div className="flex gap-2">
-                <select className="input" required value={form.month} onChange={e => setForm({ ...form, month: e.target.value })}>
-                  {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </select>
-                <select className="input" required value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}>
-                  {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+        {/* Invoice Details Section */}
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+          activeTab === 'details' ? 'block' : 'hidden'
+        }`}>
+          <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FileText size={18} className="text-blue-600" />
+              Invoice Information
+            </h2>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Tenant Selection */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Tenant <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <select 
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none" 
+                    required 
+                    value={form.tenant} 
+                    onChange={e => handleTenantChange(e.target.value)}
+                  >
+                    <option value="">Select tenant...</option>
+                    {tenants.map(t => (
+                      <option key={t.id} value={t.user.id}>
+                        {t.user.first_name} {t.user.last_name} – {t.unit_detail?.unit_number || 'No unit'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.tenant && (
+                  <p className="text-sm text-red-600 mt-1">{Array.isArray(errors.tenant) ? errors.tenant.join(', ') : errors.tenant}</p>
+                )}
+              </div>
+
+              {/* Unit Display */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Unit</label>
+                <div className="relative">
+                  <Home size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-600 cursor-not-allowed" 
+                    value={form.unit ? `Unit ${form.unit}` : 'Select tenant first'}
+                    readOnly 
+                    disabled
+                  />
+                </div>
+              </div>
+
+              {/* Billing Period */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Billing Period <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <select 
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none" 
+                      required 
+                      value={form.month} 
+                      onChange={e => setForm({ ...form, month: e.target.value })}
+                    >
+                      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                    </select>
+                  </div>
+                  <select 
+                    className="w-32 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none" 
+                    required 
+                    value={form.year} 
+                    onChange={e => setForm({ ...form, year: e.target.value })}
+                  >
+                    {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Invoice Date */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Invoice Date <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="date" 
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                  required 
+                  value={form.invoice_date} 
+                  onChange={e => setForm({ ...form, invoice_date: e.target.value })} 
+                />
+                {errors.invoice_date && (
+                  <p className="text-sm text-red-600 mt-1">{Array.isArray(errors.invoice_date) ? errors.invoice_date.join(', ') : errors.invoice_date}</p>
+                )}
+              </div>
+
+              {/* Due Date */}
+              <div className="space-y-2 sm:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Due Date <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="date" 
+                  className="w-full sm:w-1/2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                  required 
+                  value={form.due_date} 
+                  onChange={e => setForm({ ...form, due_date: e.target.value })} 
+                />
+                {errors.due_date && (
+                  <p className="text-sm text-red-600 mt-1">{Array.isArray(errors.due_date) ? errors.due_date.join(', ') : errors.due_date}</p>
+                )}
               </div>
             </div>
-            <div>
-              <label className="label">Invoice Date *</label>
-              <input type="date" className="input" required value={form.invoice_date} onChange={e => setForm({ ...form, invoice_date: e.target.value })} />
-              {errors.invoice_date && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.invoice_date) ? errors.invoice_date.join(', ') : errors.invoice_date}</div>}
-            </div>
-            <div>
-              <label className="label">Due Date *</label>
-              <input type="date" className="input" required value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
-              {errors.due_date && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.due_date) ? errors.due_date.join(', ') : errors.due_date}</div>}
-            </div>
           </div>
         </div>
 
-        {/* Charges */}
-        <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-800">Charges</h2>
-
-          <div>
-            <label className="label">Base Rent (KES) *</label>
-            <input type="number" step="0.01" min="0" className="input" required value={form.base_rent}
-              onChange={e => setForm({ ...form, base_rent: e.target.value })} placeholder="0.00" />
-            {errors.base_rent && <div className="text-sm text-red-600 mt-1">{Array.isArray(errors.base_rent) ? errors.base_rent.join(', ') : errors.base_rent}</div>}
+        {/* Charges Section */}
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+          activeTab === 'charges' ? 'block' : 'hidden'
+        }`}>
+          <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <CreditCard size={18} className="text-blue-600" />
+              Charges & Items
+            </h2>
           </div>
-
-          {/* Line items */}
-          {lineItems.length > 0 && (
+          
+          <div className="p-6 space-y-6">
+            {/* Base Rent */}
             <div className="space-y-2">
-              <label className="label">Additional Charges</label>
-              {lineItems.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <input className="input flex-1" placeholder="Description (e.g. Water)" value={item.description}
-                    onChange={e => updateLineItem(idx, 'description', e.target.value)} />
-                  <input type="number" step="0.01" min="0" className="input w-36" placeholder="Amount"
-                    value={item.amount} onChange={e => updateLineItem(idx, 'amount', e.target.value)} />
-                  <button type="button" onClick={() => removeLineItem(idx)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
-                    <Minus size={16} />
+              <label className="block text-sm font-semibold text-gray-700">
+                Base Rent (KES) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative sm:w-96">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">KES</span>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                  required 
+                  value={form.base_rent}
+                  onChange={e => setForm({ ...form, base_rent: e.target.value })} 
+                  placeholder="0.00" 
+                />
+              </div>
+              {errors.base_rent && (
+                <p className="text-sm text-red-600 mt-1">{Array.isArray(errors.base_rent) ? errors.base_rent.join(', ') : errors.base_rent}</p>
+              )}
+            </div>
+
+            {/* Line Items */}
+            {lineItems.length > 0 && (
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-700">Additional Charges</label>
+                {lineItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-3 items-start">
+                    <div className="flex-1">
+                      <input 
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                        placeholder="Description (e.g., Water)" 
+                        value={item.description}
+                        onChange={e => updateLineItem(idx, 'description', e.target.value)} 
+                      />
+                    </div>
+                    <div className="relative w-40">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">KES</span>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                        placeholder="Amount"
+                        value={item.amount} 
+                        onChange={e => updateLineItem(idx, 'amount', e.target.value)} 
+                      />
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeLineItem(idx)}
+                      className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
+                    >
+                      <Minus size={18} />
+                    </button>
+                    {errors.line_items && errors.line_items[idx] && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {Object.entries(errors.line_items[idx]).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Add Buttons */}
+            <div>
+              <p className="text-sm text-gray-500 mb-3">Quick add charges:</p>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_CHARGES.map(charge => (
+                  <button 
+                    key={charge} 
+                    type="button" 
+                    onClick={() => addLineItem(charge)}
+                    className="px-4 py-2 text-xs font-medium bg-gray-100 text-gray-700 rounded-xl hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-transparent transition-all duration-200"
+                  >
+                    + {charge}
                   </button>
-                  {errors.line_items && errors.line_items[idx] && (
-                    <div className="text-sm text-red-600 mt-1">{Object.entries(errors.line_items[idx]).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Preset charge buttons */}
-          <div>
-            <p className="text-xs text-slate-500 mb-2">Quick add:</p>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_CHARGES.map(charge => (
-                <button key={charge} type="button" onClick={() => addLineItem(charge)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:border-primary-400 hover:text-primary-700 hover:bg-primary-50 transition-colors">
-                  + {charge}
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => addLineItem('')}
+                  className="px-4 py-2 text-xs font-medium border-2 border-dashed border-gray-300 text-gray-500 rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                >
+                  <Plus size={14} className="inline mr-1" />
+                  Custom Item
                 </button>
-              ))}
-              <button type="button" onClick={() => addLineItem('')}
-                className="text-xs px-3 py-1.5 rounded-full border border-dashed border-slate-300 text-slate-500 hover:border-primary-400 hover:text-primary-700 transition-colors">
-                <Plus size={12} className="inline mr-1" />Custom
-              </button>
+              </div>
+            </div>
+
+            {/* Total Amount */}
+            <div className="mt-6 pt-6 border-t-2 border-gray-100">
+              <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-white p-5 rounded-xl">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Amount</p>
+                  <p className="text-xs text-gray-400 mt-1">Including all charges</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-3xl font-bold text-blue-600">KES {formatCurrency(totalAmount())}</span>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Total */}
-          <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
-            <span className="font-semibold text-slate-700">Total Amount</span>
-            <span className="text-xl font-bold text-primary-700">KES {formatCurrency(totalAmount())}</span>
+        {/* Notes Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900">Additional Notes</h2>
+          </div>
+          <div className="p-6">
+            <textarea 
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+              rows={3} 
+              value={form.notes} 
+              onChange={e => setForm({ ...form, notes: e.target.value })} 
+              placeholder="Add any additional notes or comments about this invoice..."
+            />
           </div>
         </div>
 
-        <div className="card">
-          <label className="label">Notes (optional)</label>
-          <textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" />
-        </div>
-
-        <div className="flex gap-3">
-          <Link to="/landlord/invoices" className="btn-secondary">Cancel</Link>
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving && <Loader2 size={15} className="animate-spin" />}
-            {saving ? 'Creating…' : 'Create Invoice'}
+        {/* Form Actions */}
+        <div className="flex items-center justify-end gap-3 pt-4">
+          <Link 
+            to="/landlord/invoices" 
+            className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all duration-200"
+          >
+            Cancel
+          </Link>
+          <button 
+            type="submit" 
+            disabled={saving} 
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-200 inline-flex items-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating Invoice...
+              </>
+            ) : (
+              <>
+                <Plus size={18} />
+                Create Invoice
+              </>
+            )}
           </button>
         </div>
       </form>
