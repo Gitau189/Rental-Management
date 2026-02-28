@@ -3,10 +3,10 @@ import {
   Building2,
   CheckCircle,
   Clock,
-  DollarSign,
   Home,
   TrendingUp,
 } from "lucide-react"
+import { FaRegMoneyBillAlt } from 'react-icons/fa'
 import { useEffect, useState } from "react"
 import LoadingSpinner from "../../components/LoadingSpinner"
 import StatusBadge from "../../components/StatusBadge"
@@ -189,7 +189,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-          <DollarSign size={22} className="text-red-600" />
+          <FaRegMoneyBillAlt size={22} className="text-red-600" />
         </div>
       </div>
 
