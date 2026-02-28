@@ -49,6 +49,22 @@ export default function Properties() {
     )
   }, [apartments, search])
 
+  /* --------- Analytics --------- */
+
+  const totalProperties = apartments.length
+  const totalUnits = apartments.reduce(
+    (sum, a) => sum + (a.total_units || 0),
+    0
+  )
+  const totalOccupied = apartments.reduce(
+    (sum, a) => sum + (a.occupied_units || 0),
+    0
+  )
+  const occupancyRate =
+    totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0
+
+  /* --------- Actions --------- */
+
   const openCreate = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
@@ -72,10 +88,10 @@ export default function Properties() {
     try {
       if (editing) {
         await api.patch(`/apartments/${editing.id}/`, form)
-        toast.success("Property updated successfully")
+        toast.success("Property updated")
       } else {
         await api.post("/apartments/", form)
-        toast.success("Property created successfully")
+        toast.success("Property created")
       }
 
       setModal(false)
@@ -100,31 +116,43 @@ export default function Properties() {
     }
   }
 
-  /* ---------------------- UI ---------------------- */
+  /* --------- Loading Skeleton --------- */
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="h-48 rounded-xl bg-slate-100 animate-pulse"
-          />
-        ))}
+      <div className="space-y-6">
+        <div className="grid sm:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="h-24 rounded-2xl bg-slate-100 animate-pulse"
+            />
+          ))}
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="h-52 rounded-2xl bg-slate-100 animate-pulse"
+            />
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-10">
+
+      {/* ===== Header ===== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
             Properties
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage your buildings and apartments
+          <p className="text-slate-500 mt-1">
+            Manage and monitor your real estate portfolio
           </p>
         </div>
 
@@ -136,7 +164,17 @@ export default function Properties() {
         </button>
       </div>
 
-      {/* Search */}
+      {/* ===== Portfolio Summary ===== */}
+      <div className="grid sm:grid-cols-3 gap-5">
+        <SummaryCard label="Total Properties" value={totalProperties} />
+        <SummaryCard label="Total Units" value={totalUnits} />
+        <SummaryCard
+          label="Occupancy Rate"
+          value={`${occupancyRate}%`}
+        />
+      </div>
+
+      {/* ===== Search ===== */}
       <div className="relative max-w-md">
         <Search
           size={16}
@@ -144,147 +182,161 @@ export default function Properties() {
         />
         <input
           className="input pl-9"
-          placeholder="Search by name or city..."
+          placeholder="Search property..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Empty State */}
+      {/* ===== Properties Grid ===== */}
       {filteredApartments.length === 0 ? (
-        <div className="text-center py-20 border rounded-xl bg-slate-50">
-          <Building2 size={40} className="mx-auto text-slate-400 mb-3" />
-          <h3 className="text-lg font-semibold text-slate-800">
+        <div className="text-center py-24 border rounded-2xl bg-slate-50">
+          <Building2
+            size={44}
+            className="mx-auto text-slate-400 mb-4"
+          />
+          <h3 className="text-lg font-semibold">
             No properties found
           </h3>
-          <p className="text-sm text-slate-500 mt-1">
-            Start by adding your first property.
+          <p className="text-slate-500 mt-2">
+            Add your first property to begin tracking units.
           </p>
           <button
             onClick={openCreate}
-            className="btn-primary mt-4"
+            className="btn-primary mt-6"
           >
             Add Property
           </button>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredApartments.map((apt) => (
-            <div
-              key={apt.id}
-              className="group bg-white border rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-200"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex gap-3">
-                  <div className="h-11 w-11 flex items-center justify-center rounded-xl bg-primary-100 text-primary-700">
-                    <Building2 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">
-                      {apt.name}
-                    </h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <MapPin size={12} /> {apt.city}
-                    </p>
-                  </div>
-                </div>
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredApartments.map((apt) => {
+            const rate =
+              apt.total_units > 0
+                ? Math.round(
+                    (apt.occupied_units / apt.total_units) * 100
+                  )
+                : 0
 
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => openEdit(apt)}
-                    className="p-2 rounded-lg hover:bg-primary-50 text-slate-500 hover:text-primary-700"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(apt)}
-                    className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-sm text-slate-500 mt-4 line-clamp-2">
-                {apt.address}
-              </p>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 mt-5 text-center text-sm border-t pt-4">
-                <div>
-                  <p className="font-bold text-slate-900">
-                    {apt.total_units}
-                  </p>
-                  <p className="text-xs text-slate-500">Total</p>
-                </div>
-                <div>
-                  <p className="font-bold text-green-600">
-                    {apt.occupied_units}
-                  </p>
-                  <p className="text-xs text-slate-500">Occupied</p>
-                </div>
-                <div>
-                  <p className="font-bold text-slate-600">
-                    {apt.vacant_units}
-                  </p>
-                  <p className="text-xs text-slate-500">Vacant</p>
-                </div>
-              </div>
-
-              <Link
-                to={`/landlord/properties/${apt.id}`}
-                className="block mt-4 text-sm font-medium text-primary-700 hover:underline"
+            return (
+              <div
+                key={apt.id}
+                className="group bg-white border rounded-2xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               >
-                Manage Units →
-              </Link>
-            </div>
-          ))}
+                {/* Top Section */}
+                <div className="flex justify-between">
+                  <div className="flex gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center">
+                      <Building2 size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900">
+                        {apt.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <MapPin size={12} /> {apt.city}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => openEdit(apt)}
+                      className="p-2 rounded-lg hover:bg-primary-50 text-slate-500 hover:text-primary-700"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(apt)}
+                      className="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Address */}
+                <p className="text-sm text-slate-500 mt-4 line-clamp-2">
+                  {apt.address}
+                </p>
+
+                {/* Occupancy Bar */}
+                <div className="mt-6">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span>{rate}% Occupied</span>
+                    <span>{apt.total_units} Units</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary-600 transition-all"
+                      style={{ width: `${rate}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom Stats */}
+                <div className="grid grid-cols-3 mt-6 text-center text-sm border-t pt-4">
+                  <Stat label="Total" value={apt.total_units} />
+                  <Stat
+                    label="Occupied"
+                    value={apt.occupied_units}
+                    color="text-green-600"
+                  />
+                  <Stat
+                    label="Vacant"
+                    value={apt.vacant_units}
+                  />
+                </div>
+
+                <Link
+                  to={`/landlord/properties/${apt.id}`}
+                  className="block mt-5 text-sm font-medium text-primary-700 hover:underline"
+                >
+                  Manage Units →
+                </Link>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* ===== Modal Forms (same as yours) ===== */}
       <Modal
         open={modal}
         onClose={() => setModal(false)}
         title={editing ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="label">Property Name</label>
-            <input
-              required
-              className="input"
-              value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
-            />
-          </div>
+          <input
+            required
+            className="input"
+            placeholder="Property Name"
+            value={form.name}
+            onChange={(e) =>
+              setForm({ ...form, name: e.target.value })
+            }
+          />
 
-          <div>
-            <label className="label">Address</label>
-            <textarea
-              required
-              rows={3}
-              className="input"
-              value={form.address}
-              onChange={(e) =>
-                setForm({ ...form, address: e.target.value })
-              }
-            />
-          </div>
+          <textarea
+            required
+            rows={3}
+            className="input"
+            placeholder="Address"
+            value={form.address}
+            onChange={(e) =>
+              setForm({ ...form, address: e.target.value })
+            }
+          />
 
-          <div>
-            <label className="label">City</label>
-            <input
-              required
-              className="input"
-              value={form.city}
-              onChange={(e) =>
-                setForm({ ...form, city: e.target.value })
-              }
-            />
-          </div>
+          <input
+            required
+            className="input"
+            placeholder="City"
+            value={form.city}
+            onChange={(e) =>
+              setForm({ ...form, city: e.target.value })
+            }
+          />
 
           <div className="flex justify-end gap-3 pt-4">
             <button
@@ -309,7 +361,7 @@ export default function Properties() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -317,7 +369,7 @@ export default function Properties() {
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Are you sure you want to delete{" "}
+            Delete{" "}
             <span className="font-semibold">
               {deleteTarget?.name}
             </span>
@@ -340,6 +392,26 @@ export default function Properties() {
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+/* ===== Small Reusable Components ===== */
+
+function SummaryCard({ label, value }) {
+  return (
+    <div className="bg-white border rounded-2xl p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="text-2xl font-bold mt-2">{value}</p>
+    </div>
+  )
+}
+
+function Stat({ label, value, color = "text-slate-900" }) {
+  return (
+    <div>
+      <p className={`font-semibold ${color}`}>{value}</p>
+      <p className="text-xs text-slate-500">{label}</p>
     </div>
   )
 }
