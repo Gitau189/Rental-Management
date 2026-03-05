@@ -338,7 +338,6 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* Quick Pay UI removed */}
     </div>
   )
 }
