@@ -61,10 +61,13 @@ def generate_invoice_pdf(invoice):
     W = A4[0] - 4*cm   # usable width
     story = []
 
-    # Header
-    story.append(Paragraph(invoice.unit.apartment.name, h1))
-    story.append(Paragraph(invoice.unit.apartment.address, small))
-    story.append(Paragraph(invoice.unit.apartment.city, small))
+    # Header (apartment may be absent)
+    apt_name = invoice.unit.apartment.name if invoice.unit and invoice.unit.apartment else ''
+    apt_address = invoice.unit.apartment.address if invoice.unit and invoice.unit.apartment else ''
+    apt_city = invoice.unit.apartment.city if invoice.unit and invoice.unit.apartment else ''
+    story.append(Paragraph(apt_name, h1))
+    story.append(Paragraph(apt_address, small))
+    story.append(Paragraph(apt_city, small))
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width='100%', thickness=1.5, color=PRIMARY))
     story.append(Spacer(1, 0.3*cm))
@@ -87,7 +90,7 @@ def generate_invoice_pdf(invoice):
     bill_rows = [
         [Paragraph('BILLED TO', l), Paragraph('INVOICE DATE', l)],
         [Paragraph(invoice.tenant.get_full_name(), v), Paragraph(str(invoice.invoice_date), v)],
-        [Paragraph(f'Unit: {invoice.unit.unit_number}', v), Paragraph('DUE DATE', l)],
+        [Paragraph(f'Unit: {invoice.unit.unit_number}' if invoice.unit else 'Unit: —', v), Paragraph('DUE DATE', l)],
         [Paragraph(f'Period: {period}', v), Paragraph(str(invoice.due_date), v)],
         [Paragraph(f'Phone: {invoice.tenant.phone or "—"}', small), Paragraph('STATUS', l)],
         [Paragraph(invoice.tenant.email, small),
@@ -170,10 +173,13 @@ def generate_receipt_pdf(payment):
     W = A4[0] - 4*cm
     story = []
 
-    # Header
-    story.append(Paragraph(invoice.unit.apartment.name, h1))
-    story.append(Paragraph(invoice.unit.apartment.address, small))
-    story.append(Paragraph(invoice.unit.apartment.city, small))
+    # Header (apartment may be absent)
+    apt_name = invoice.unit.apartment.name if invoice.unit and invoice.unit.apartment else ''
+    apt_address = invoice.unit.apartment.address if invoice.unit and invoice.unit.apartment else ''
+    apt_city = invoice.unit.apartment.city if invoice.unit and invoice.unit.apartment else ''
+    story.append(Paragraph(apt_name, h1))
+    story.append(Paragraph(apt_address, small))
+    story.append(Paragraph(apt_city, small))
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width='100%', thickness=1.5, color=SUCCESS))
     story.append(Spacer(1, 0.3*cm))

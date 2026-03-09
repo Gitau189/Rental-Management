@@ -17,7 +17,7 @@ class Invoice(models.Model):
         (OVERDUE, 'Overdue'),
     ]
 
-    unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='invoices')
+    unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='invoices', null=True, blank=True)
     tenant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -44,11 +44,11 @@ class Invoice(models.Model):
 
     class Meta:
         ordering = ['-year', '-month', '-created_at']
-        unique_together = ['unit', 'month', 'year']
 
     def __str__(self):
         from calendar import month_name
-        return f'{self.unit} – {month_name[self.month]} {self.year}'
+        unit_str = str(self.unit) if self.unit else f'Unassigned tenant {self.tenant.get_full_name()}'
+        return f'{unit_str} – {month_name[self.month]} {self.year}'
 
     @property
     def remaining_balance(self):

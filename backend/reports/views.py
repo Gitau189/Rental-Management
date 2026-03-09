@@ -93,9 +93,10 @@ def dashboard(request):
 
     # Also include outstanding invoices from other months in the unpaid list
     # so landlords can see all not-paid invoices in the dashboard.
+    current_ids = list(current_invoices.values_list('id', flat=True))
     other_outstanding = Invoice.objects.filter(
         landlord=request.user,
-    ).exclude(status='paid').exclude(id__in=[i.id for i in current_invoices]).select_related('tenant', 'unit', 'unit__apartment')
+    ).exclude(status='paid').exclude(id__in=current_ids).select_related('tenant', 'unit', 'unit__apartment')
 
     for inv in other_outstanding:
         entry = {
@@ -129,7 +130,7 @@ def dashboard(request):
         {
             'id': p.id,
             'tenant_name': p.invoice.tenant.get_full_name(),
-            'unit': str(p.invoice.unit),
+            'unit': str(p.invoice.unit) if p.invoice.unit else None,
             'amount': str(p.amount),
             'payment_date': str(p.payment_date),
             'method': p.get_method_display(),
@@ -193,7 +194,7 @@ def payment_report(request):
             'date': str(p.payment_date),
             'tenant': p.invoice.tenant.get_full_name(),
             'unit': str(p.invoice.unit),
-            'apartment': p.invoice.unit.apartment.name,
+            'apartment': p.invoice.unit.apartment.name if p.invoice.unit and p.invoice.unit.apartment else None,
             'amount': str(p.amount),
             'method': p.get_method_display(),
             'reference': p.reference_number,
@@ -233,7 +234,7 @@ def outstanding_report(request):
             'invoice_id': inv.id,
             'tenant': inv.tenant.get_full_name(),
             'unit': str(inv.unit),
-            'apartment': inv.unit.apartment.name,
+            'apartment': inv.unit.apartment.name if inv.unit and inv.unit.apartment else None,
             'period': f'{inv.month}/{inv.year}',
             'total_amount': str(inv.total_amount),
             'amount_paid': str(inv.amount_paid),

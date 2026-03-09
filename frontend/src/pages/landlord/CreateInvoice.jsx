@@ -80,10 +80,19 @@ export default function CreateInvoice() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
+    // Client-side validation: ensure base_rent is provided
+    if (form.base_rent === '' || isNaN(parseFloat(form.base_rent))) {
+      const msg = 'Base rent is required.'
+      setErrors({ base_rent: msg })
+      toast.error(msg)
+      setSaving(false)
+      return
+    }
+
     try {
       const payload = {
         tenant: parseInt(form.tenant),
-        unit: parseInt(form.unit),
+        unit: form.unit ? parseInt(form.unit) : null,
         month: parseInt(form.month),
         year: parseInt(form.year),
         invoice_date: form.invoice_date,
@@ -336,7 +345,6 @@ export default function CreateInvoice() {
                   step="0.01" 
                   min="0" 
                   className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
-                  required 
                   value={form.base_rent}
                   onChange={e => setForm({ ...form, base_rent: e.target.value })} 
                   placeholder="0.00" 

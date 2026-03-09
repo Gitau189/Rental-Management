@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
 
 from properties.models import TenantProfile, Unit
 from users.serializers import UserSerializer
@@ -17,8 +16,8 @@ class InvoiceLineItemSerializer(serializers.ModelSerializer):
 
 class InvoiceListSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.get_full_name', read_only=True)
-    unit_display = serializers.CharField(source='unit.__str__', read_only=True)
-    apartment_name = serializers.CharField(source='unit.apartment.name', read_only=True)
+    unit_display = serializers.SerializerMethodField()
+    apartment_name = serializers.SerializerMethodField()
     remaining_balance = serializers.ReadOnlyField()
     month_name = serializers.SerializerMethodField()
 
@@ -37,16 +36,22 @@ class InvoiceListSerializer(serializers.ModelSerializer):
         from calendar import month_name
         return month_name[obj.month]
 
+    def get_unit_display(self, obj):
+        return str(obj.unit) if obj.unit else None
+
+    def get_apartment_name(self, obj):
+        return obj.unit.apartment.name if obj.unit and obj.unit.apartment else None
+
 
 class InvoiceDetailSerializer(serializers.ModelSerializer):
     tenant = UserSerializer(read_only=True)
     line_items = InvoiceLineItemSerializer(many=True, read_only=True)
     remaining_balance = serializers.ReadOnlyField()
     overpayment = serializers.ReadOnlyField()
-    unit_display = serializers.CharField(source='unit.__str__', read_only=True)
-    apartment_name = serializers.CharField(source='unit.apartment.name', read_only=True)
-    apartment_address = serializers.CharField(source='unit.apartment.address', read_only=True)
-    apartment_city = serializers.CharField(source='unit.apartment.city', read_only=True)
+    unit_display = serializers.SerializerMethodField()
+    apartment_name = serializers.SerializerMethodField()
+    apartment_address = serializers.SerializerMethodField()
+    apartment_city = serializers.SerializerMethodField()
     month_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -64,6 +69,18 @@ class InvoiceDetailSerializer(serializers.ModelSerializer):
         from calendar import month_name
         return month_name[obj.month]
 
+    def get_unit_display(self, obj):
+        return str(obj.unit) if obj.unit else None
+
+    def get_apartment_name(self, obj):
+        return obj.unit.apartment.name if obj.unit and obj.unit.apartment else None
+
+    def get_apartment_address(self, obj):
+        return obj.unit.apartment.address if obj.unit and obj.unit.apartment else None
+
+    def get_apartment_city(self, obj):
+        return obj.unit.apartment.city if obj.unit and obj.unit.apartment else None
+
 
 class InvoiceCreateSerializer(serializers.ModelSerializer):
     line_items = InvoiceLineItemSerializer(many=True, required=False)
@@ -75,13 +92,6 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
             'invoice_date', 'due_date',
             'base_rent', 'line_items', 'notes',
         )
-        validators = [
-            UniqueTogetherValidator(
-                queryset=Invoice.objects.all(),
-                fields=('unit', 'month', 'year'),
-                message='An invoice for this unit already exists for the selected month and year.'
-            )
-        ]
 
     def validate(self, data):
         unit = data.get('unit')
