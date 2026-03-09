@@ -91,6 +91,35 @@ def dashboard(request):
             else:
                 unpaid_tenants.append(entry)
 
+    # Also include outstanding invoices from other months in the unpaid list
+    # so landlords can see all not-paid invoices in the dashboard.
+    other_outstanding = Invoice.objects.filter(
+        landlord=request.user,
+    ).exclude(status='paid').exclude(id__in=[i.id for i in current_invoices]).select_related('tenant', 'unit', 'unit__apartment')
+
+    for inv in other_outstanding:
+        entry = {
+            'invoice_id': inv.id,
+            'tenant_name': inv.tenant.get_full_name(),
+            'unit': str(inv.unit),
+            'total_amount': str(inv.total_amount),
+            'amount_paid': str(inv.amount_paid),
+            'remaining_balance': str(inv.remaining_balance),
+            'status': inv.status,
+        }
+        # Only add truly unpaid invoices here (amount_paid == 0)
+        try:
+            if inv.amount_paid == 0:
+                unpaid_tenants.append(entry)
+            else:
+                # If partially paid or overdue, include in partial list
+                partial_tenants.append(entry)
+        except Exception:
+            if inv.status in ('partial', 'overdue'):
+                partial_tenants.append(entry)
+            else:
+                unpaid_tenants.append(entry)
+
     # Recent payments (last 10)
     recent_payments = Payment.objects.filter(
         invoice__landlord=request.user
