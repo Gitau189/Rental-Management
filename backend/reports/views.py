@@ -73,12 +73,23 @@ def dashboard(request):
             'remaining_balance': str(inv.remaining_balance),
             'status': inv.status,
         }
-        if inv.status == 'paid':
-            paid_tenants.append(entry)
-        elif inv.status in ('partial', 'overdue'):
-            partial_tenants.append(entry)
-        else:
-            unpaid_tenants.append(entry)
+        # Classify by amounts to avoid missing paid invoices when status
+        # wasn't updated (e.g. created outside the usual flow).
+        try:
+            if inv.amount_paid >= inv.total_amount:
+                paid_tenants.append(entry)
+            elif inv.amount_paid > 0:
+                partial_tenants.append(entry)
+            else:
+                unpaid_tenants.append(entry)
+        except Exception:
+            # Fallback to status field if any unexpected value occurs
+            if inv.status == 'paid':
+                paid_tenants.append(entry)
+            elif inv.status in ('partial', 'overdue'):
+                partial_tenants.append(entry)
+            else:
+                unpaid_tenants.append(entry)
 
     # Recent payments (last 10)
     recent_payments = Payment.objects.filter(
