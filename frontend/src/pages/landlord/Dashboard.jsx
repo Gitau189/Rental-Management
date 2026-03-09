@@ -170,8 +170,15 @@ export default function Dashboard() {
     "December",
   ]
 
-  const occupancyRate = ((units.occupied / units.total) * 100).toFixed(1)
-  const collectionRate = ((revenue_this_month / (revenue_this_month + total_outstanding)) * 100).toFixed(1)
+  const occupancyRate = units.total
+    ? ((units.occupied / units.total) * 100).toFixed(1)
+    : '0.0'
+
+  const rev = parseFloat(revenue_this_month) || 0
+  const out = parseFloat(total_outstanding) || 0
+  const collectionRate = (rev + out) === 0
+    ? '0.0'
+    : ((rev / (rev + out)) * 100).toFixed(1)
 
   return (
     <div className="min-h-screen bg-gray-50">
