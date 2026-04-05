@@ -30,7 +30,7 @@ export default function Login() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur mb-4">
             <Home size={32} className="text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Esther Rent</h1>
+          <h1 className="text-3xl font-bold text-white">Favour</h1>
           <p className="text-primary-200 mt-1">Rental Management System</p>
         </div>
 

@@ -35,7 +35,7 @@ export default function Layout({ role }) {
           >
             <Menu size={22} />
           </button>
-          <span className="text-white font-bold text-sm">Esther Rent</span>
+          <span className="text-white font-bold text-sm">Favour</span>
         </header>
 
         <main className="flex-1">

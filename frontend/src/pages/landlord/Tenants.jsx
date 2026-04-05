@@ -31,6 +31,11 @@ export default function Tenants() {
   
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' })
 
+  const fetchUnits = async () => {
+    const uRes = await api.get('/units/?active_only=true')
+    setUnits(uRes.data.filter((u) => u.status === 'vacant'))
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -112,6 +117,8 @@ export default function Tenants() {
     }
     setSaving(true)
     try {
+      // Re-fetch units right before submit to avoid stale occupancy choices.
+      await fetchUnits()
       await api.post("/tenants/", {
         ...form,
         unit: form.unit ? parseInt(form.unit) : null,
@@ -119,10 +126,11 @@ export default function Tenants() {
       toast.success("Tenant created successfully")
       setModal(false)
       setForm(EMPTY_FORM)
-      const tRes = await api.get("/tenants/")
+      const [tRes] = await Promise.all([api.get('/tenants/'), fetchUnits()])
       setTenants(tRes.data)
     } catch (err) {
       toast.error(errorMessage(err))
+      await fetchUnits()
     } finally {
       setSaving(false)
     }
@@ -145,7 +153,10 @@ export default function Tenants() {
         </div>
 
         <button
-          onClick={() => setModal(true)}
+          onClick={async () => {
+            await fetchUnits()
+            setModal(true)
+          }}
           className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg"
         >
           <Plus size={16} />

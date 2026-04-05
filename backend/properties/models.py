@@ -27,11 +27,11 @@ class Apartment(models.Model):
 
     @property
     def occupied_units(self):
-        return self.units.filter(is_active=True, status='occupied').count()
+        return self.units.filter(is_active=True, tenant_profiles__is_active=True).distinct().count()
 
     @property
     def vacant_units(self):
-        return self.units.filter(is_active=True, status='vacant').count()
+        return self.total_units - self.occupied_units
 
 
 class Unit(models.Model):

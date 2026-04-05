@@ -127,13 +127,26 @@ class TenantCreateSerializer(serializers.Serializer):
     id_number = serializers.CharField()
     move_in_date = serializers.DateField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            self.fields['unit'].queryset = Unit.objects.filter(
+                is_active=True,
+                apartment__landlord=request.user,
+            )
+
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError('A user with this email already exists.')
         return value
 
     def validate_unit(self, unit):
-        if unit.status == Unit.OCCUPIED:
+        request = self.context.get('request')
+        if request and unit.apartment.landlord_id != request.user.id:
+            raise serializers.ValidationError('Invalid unit selected for this landlord.')
+
+        if unit.active_tenant:
             raise serializers.ValidationError('This unit is already occupied.')
         return unit
 

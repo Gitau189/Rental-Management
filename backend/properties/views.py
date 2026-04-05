@@ -322,6 +322,7 @@ def tenant_detail(request, pk):
                         return Response({'detail': 'Cannot preserve invoices; model enforces tenant FK protection.'}, status=status.HTTP_400_BAD_REQUEST)
 
                 # delete tenant profile and user
+                profile._changed_by = request.user
                 profile.delete()
                 tenant_user.delete()
 

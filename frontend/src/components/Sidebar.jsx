@@ -45,7 +45,7 @@ export default function Sidebar({ role, open, onClose }) {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">ER</div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">Esther Rent</p>
+              <p className="text-sm font-semibold text-slate-900">Favour</p>
               <p className="text-xs text-slate-500 capitalize">{role}</p>
             </div>
           </div>
@@ -58,7 +58,7 @@ export default function Sidebar({ role, open, onClose }) {
         <div className="hidden lg:flex lg:items-center lg:gap-3 lg:px-4 lg:py-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">ER</div>
           <div>
-            <p className="text-sm font-semibold text-slate-900">Esther Rent</p>
+            <p className="text-sm font-semibold text-slate-900">Favour</p>
             <p className="text-xs text-slate-500 capitalize">{role}</p>
           </div>
         </div>

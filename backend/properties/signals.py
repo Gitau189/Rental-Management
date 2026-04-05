@@ -1,4 +1,4 @@
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 
 from .models import Unit, TenantProfile, UnitStatusAudit
@@ -64,3 +64,23 @@ def unit_post_save(sender, instance, created, **kwargs):
         except Exception:
             # don't let audit creation fail the unit save
             pass
+
+
+@receiver(post_delete, sender=TenantProfile)
+def tenant_profile_post_delete(sender, instance, **kwargs):
+    # Keep unit status in sync when a tenant is permanently deleted.
+    unit = instance.unit
+    if not unit:
+        return
+
+    try:
+        has_active = TenantProfile.objects.filter(unit=unit, is_active=True).exists()
+        desired_status = Unit.OCCUPIED if has_active else Unit.VACANT
+        if unit.status != desired_status:
+            changed_by = getattr(instance, '_changed_by', None)
+            unit._changed_by = changed_by if getattr(changed_by, 'pk', None) else None
+            unit.status = desired_status
+            unit.save(update_fields=['status'])
+    except Exception:
+        # Never block tenant deletion due to status-sync issues.
+        pass

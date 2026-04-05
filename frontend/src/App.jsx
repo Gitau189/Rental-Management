@@ -35,7 +35,7 @@ export default function App() {
   if (loading) return <LoadingSpinner fullPage />
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={
           user ? <Navigate to={user.role === 'landlord' ? '/landlord/dashboard' : '/tenant/dashboard'} replace /> : <Login />
